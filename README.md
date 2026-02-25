@@ -60,7 +60,6 @@ python3 seekarr.py --config config.json
 ## Config options (important)
 
 - `upgrades.enabled`: enable cutoff upgrade searches
-  - **Precedence:** if `SEEKARR_UPGRADES_ENABLED` is set, it overrides `upgrades.enabled` from `config.json`
 - `runtime.run_as_cron`: if `true`, container starts `crond`
 - `runtime.cron_schedule`: cron expression (default `0 */12 * * *`, twice daily)
 - `runtime.dry_run`: if `true`, cron jobs run in dry-run mode
@@ -70,6 +69,7 @@ Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`
 - `SEEKARR_CRON_SCHEDULE="0 */12 * * *"`
 - `SEEKARR_DRY_RUN=true|false`
+- `SEEKARR_UPGRADES_ENABLED=true|false`
 - `SEEKARR_STARTUP_STRICT=true|false` (default `true`)
 
 ## Startup checks
