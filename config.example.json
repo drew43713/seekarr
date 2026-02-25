@@ -29,6 +29,7 @@
   "runtime": {
     "run_as_cron": true,
     "cron_schedule": "0 */12 * * *",
+    "timezone": "UTC",
     "dry_run": false
   }
 }

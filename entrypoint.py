@@ -51,6 +51,7 @@ def load_cfg(path):
             "run_as_cron": _env_bool("SEEKARR_RUN_AS_CRON", True),
             "cron_schedule": os.environ.get("SEEKARR_CRON_SCHEDULE", "0 */12 * * *"),
             "dry_run": _env_bool("SEEKARR_DRY_RUN", False),
+            "timezone": os.environ.get("SEEKARR_TIMEZONE", "UTC"),
         },
     }
 
@@ -151,6 +152,15 @@ def main():
     run_as_cron = _env_bool("SEEKARR_RUN_AS_CRON", bool(runtime.get("run_as_cron", False)))
     cron_schedule = os.environ.get("SEEKARR_CRON_SCHEDULE", runtime.get("cron_schedule", "0 */12 * * *"))
     dry_run = _env_bool("SEEKARR_DRY_RUN", bool(runtime.get("dry_run", False)))
+    timezone = os.environ.get("SEEKARR_TIMEZONE", runtime.get("timezone", "UTC"))
+
+    # Apply container/process timezone for cron scheduling and log timestamps where supported
+    if timezone:
+        os.environ["TZ"] = timezone
+        try:
+            time.tzset()
+        except Exception:
+            pass
 
     if not startup_checks(cfg):
         sys.exit(1)
@@ -165,11 +175,14 @@ def main():
         os.makedirs("/etc/crontabs", exist_ok=True)
         os.makedirs("/logs", exist_ok=True)
         with open("/etc/crontabs/root", "w", encoding="utf-8") as f:
+            if timezone:
+                f.write(f"CRON_TZ={timezone}\n")
+                f.write(f"TZ={timezone}\n")
             f.write(line + "\n")
 
         ready_msg = (
             f"[seekarr] READY: cron scheduler active | schedule='{cron_schedule}' "
-            f"| dry_run={str(dry_run).lower()}"
+            f"| tz='{timezone}' | dry_run={str(dry_run).lower()}"
         )
         print(ready_msg)
         with open("/logs/seekarr.log", "a", encoding="utf-8") as f:

@@ -62,6 +62,7 @@ python3 seekarr.py --config config.json
 - `upgrades.enabled`: enable cutoff upgrade searches
 - `runtime.run_as_cron`: if `true`, container starts `crond`
 - `runtime.cron_schedule`: cron expression (default `0 */12 * * *`, twice daily)
+- `runtime.timezone`: timezone used for cron schedule interpretation (default `UTC`, e.g. `America/New_York`)
 - `runtime.dry_run`: if `true`, cron jobs run in dry-run mode
 - `state.path`: state file for rotation offsets (default `/config/seekarr_state.json`)
 
@@ -69,6 +70,7 @@ Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`
 - `SEEKARR_CRON_SCHEDULE="0 */12 * * *"`
 - `SEEKARR_DRY_RUN=true|false`
+- `SEEKARR_TIMEZONE=UTC|America/New_York|...`
 - `SEEKARR_UPGRADES_ENABLED=true|false`
 - `SEEKARR_STARTUP_STRICT=true|false` (default `true`)
 
