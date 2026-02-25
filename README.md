@@ -2,15 +2,21 @@
 
 ![Seekarr banner](./social-preview-1280x640.png)
 
-Seekarr is a lightweight automation worker for Sonarr/Radarr.
+Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
 
-## v1 Scope
+1. **Find missing media** and trigger searches for missing episodes/movies.
+2. **Upgrade existing media to quality cutoff** (when enabled) by searching items below cutoff.
 
-- Search missing episodes in Sonarr
-- Search missing movies in Radarr
-- Upgrade existing items below quality cutoff (when enabled)
-- Queue-aware safety caps
-- Config-driven runtime (one-shot or cron mode in Docker)
+## What Seekarr does
+
+- **Missing media recovery**
+  - Search missing episodes in Sonarr
+  - Search missing movies in Radarr
+- **Quality upgrades to cutoff**
+  - Find items below cutoff and trigger upgrade searches (when enabled)
+- **Safe automation controls**
+  - Queue-aware safety caps
+  - Config/env-driven runtime (one-shot or cron mode in Docker)
 
 ## Files
 
