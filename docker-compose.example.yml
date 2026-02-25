@@ -13,7 +13,7 @@ services:
       - SEEKARR_RUN_AS_CRON=true
       - SEEKARR_CRON_SCHEDULE=0 */12 * * *
       - SEEKARR_DRY_RUN=false
-      - SEEKARR_TIMEZONE=UTC
+      - SEEKARR_TIMEZONE=America/New_York
       - SEEKARR_UPGRADES_ENABLED=true
       - SEEKARR_STARTUP_STRICT=true
       # - SEEKARR_SONARR_BASE_URL=http://sonarr:8989/api/v3
