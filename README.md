@@ -16,7 +16,7 @@ Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
   - Find items below cutoff and trigger upgrade searches (when enabled)
 - **Safe automation controls**
   - Queue-aware safety caps
-  - Rotating search windows for missing items (prevents re-searching only the first N each run)
+  - Rotating search windows for missing **and cutoff-upgrade** items (prevents re-searching only the first N each run)
   - Persistent state file (`/config/seekarr_state.json` by default)
   - Config/env-driven runtime (one-shot or cron mode in Docker)
 

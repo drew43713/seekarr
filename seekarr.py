@@ -112,7 +112,12 @@ def load_state(cfg):
         with open(path, "r", encoding="utf-8") as f:
             return path, json.load(f)
     except Exception:
-        return path, {"sonarr_missing_offset": 0, "radarr_missing_offset": 0}
+        return path, {
+            "sonarr_missing_offset": 0,
+            "radarr_missing_offset": 0,
+            "sonarr_cutoff_offset": 0,
+            "radarr_cutoff_offset": 0,
+        }
 
 
 def save_state(path, state):
@@ -178,14 +183,21 @@ def run_once(cfg, dry_run=False):
         if upgrades_enabled and sq <= queue_cap:
             recs, episode_ids = sonarr_cutoff_episode_ids(s_cfg)
             summary["sonarr_cutoff_not_met"] = len(recs)
-            batch = episode_ids[:max_upgrade_eps]
+            cutoff_offset = int(state.get("sonarr_cutoff_offset", 0))
+            batch, next_cutoff_offset = rotate_slice(episode_ids, cutoff_offset, max_upgrade_eps)
+            summary["sonarr_cutoff_offset_start"] = cutoff_offset
+            summary["sonarr_cutoff_offset_next"] = next_cutoff_offset
             if batch:
                 payload = {"name": "EpisodeSearch", "episodeIds": batch}
                 if dry_run:
-                    print(f"[dry-run][sonarr] would POST /command EpisodeSearch count={len(batch)}")
+                    print(
+                        f"[dry-run][sonarr] would POST /command EpisodeSearch "
+                        f"count={len(batch)} offset={cutoff_offset}->{next_cutoff_offset}"
+                    )
                 else:
                     api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
                     summary["sonarr_upgrade_commands"] += 1
+            state["sonarr_cutoff_offset"] = next_cutoff_offset
 
     # Radarr missing
     if cfg.get("radarr", {}).get("enabled"):
@@ -215,13 +227,18 @@ def run_once(cfg, dry_run=False):
         if upgrades_enabled and rq <= queue_cap:
             recs, movie_ids = radarr_cutoff_movie_ids(r_cfg)
             summary["radarr_cutoff_not_met"] = len(recs)
-            for mid in movie_ids[:max_upgrade_movies]:
+            cutoff_offset = int(state.get("radarr_cutoff_offset", 0))
+            batch, next_cutoff_offset = rotate_slice(movie_ids, cutoff_offset, max_upgrade_movies)
+            summary["radarr_cutoff_offset_start"] = cutoff_offset
+            summary["radarr_cutoff_offset_next"] = next_cutoff_offset
+            for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command upgrade {payload}")
                 else:
                     api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_upgrade_commands"] += 1
+            state["radarr_cutoff_offset"] = next_cutoff_offset
 
     save_state(state_path, state)
     print("[summary]", dict(summary))
