@@ -90,15 +90,21 @@ services:
     container_name: seekarr
     restart: unless-stopped
     volumes:
-      - ./config.json:/config/config.json:ro
+      # Optional: keep this mount if you want a persistent editable config file.
+      # If missing, Seekarr auto-generates /config/config.json from env vars at boot.
+      - ./config.json:/config/config.json
       - ./logs:/logs
     environment:
       - SEEKARR_CONFIG=/config/config.json
       - SEEKARR_RUN_AS_CRON=true
       - SEEKARR_CRON_SCHEDULE=0 */12 * * *
       - SEEKARR_DRY_RUN=false
-      # - SEEKARR_SONARR_API_KEY=your_key_here
-      # - SEEKARR_RADARR_API_KEY=your_key_here
+      - SEEKARR_UPGRADES_ENABLED=true
+      - SEEKARR_STARTUP_STRICT=true
+      - SEEKARR_SONARR_BASE_URL=http://sonarr:8989/api/v3
+      - SEEKARR_RADARR_BASE_URL=http://radarr:7878/api/v3
+      - SEEKARR_SONARR_API_KEY=your_key_here
+      - SEEKARR_RADARR_API_KEY=your_key_here
 ```
 
 Run it:
