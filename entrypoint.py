@@ -22,7 +22,7 @@ def load_cfg(path):
 
     # Build minimal config from environment when config file is absent
     print(f"[startup] config not found at {path}; building config from environment")
-    return {
+    cfg = {
         "sonarr": {
             "base_url": os.environ.get("SEEKARR_SONARR_BASE_URL", ""),
             "base_url_env": "SEEKARR_SONARR_BASE_URL",
@@ -53,6 +53,18 @@ def load_cfg(path):
             "dry_run": _env_bool("SEEKARR_DRY_RUN", False),
         },
     }
+
+    # Persist generated config so manual runs with --config path also work
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+            f.write("\n")
+        print(f"[startup] wrote generated config to {path}")
+    except Exception as e:
+        print(f"[startup] warning: could not write generated config to {path}: {e}")
+
+    return cfg
 
 
 def _env_bool(name, default):

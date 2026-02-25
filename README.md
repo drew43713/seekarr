@@ -51,6 +51,7 @@ Environment overrides for runtime:
 
 On container boot, Seekarr now validates:
 - config file exists/loads (or builds config from env if file is missing)
+- if file is missing, Seekarr writes a generated `/config/config.json` from env values
 - Sonarr API connectivity (`/system/status`)
 - Radarr API connectivity (`/system/status`)
 
