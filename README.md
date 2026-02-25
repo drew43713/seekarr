@@ -73,6 +73,7 @@ You can set values in `config.json` (local only, gitignored) or prefer env vars:
 - `SEEKARR_RADARR_BASE_URL`
 - `SEEKARR_SONARR_API_KEY`
 - `SEEKARR_RADARR_API_KEY`
+- `SEEKARR_UPGRADES_ENABLED=true|false`
 
 `config.example.json` includes `*_env` fields so users can override both API keys and base URLs via env vars.
 

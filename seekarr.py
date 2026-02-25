@@ -68,6 +68,13 @@ def radarr_cutoff_movie_ids(app_cfg):
     return recs, movie_ids
 
 
+def _env_bool(name):
+    v = os.environ.get(name)
+    if v is None:
+        return None
+    return v.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def apply_env_overrides(cfg):
     # Allow secrets + endpoints via env vars so users don't hardcode local infra
     sonarr_api_env = cfg.get("sonarr", {}).get("api_key_env") or "SEEKARR_SONARR_API_KEY"
@@ -90,6 +97,11 @@ def apply_env_overrides(cfg):
             cfg["radarr"]["api_key"] = env_key
         if env_url:
             cfg["radarr"]["base_url"] = env_url
+
+    # Feature flags
+    upg_env = _env_bool("SEEKARR_UPGRADES_ENABLED")
+    if upg_env is not None:
+        cfg.setdefault("upgrades", {})["enabled"] = upg_env
 
     return cfg
 
