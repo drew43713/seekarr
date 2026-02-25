@@ -59,11 +59,33 @@ You can either:
 
 `config.example.json` includes `api_key_env` fields so users can override keys via env vars.
 
-## Docker run
+## Docker Compose (recommended)
+
+Use this as a starting `docker-compose.yml`:
+
+```yaml
+services:
+  seekarr:
+    build: .
+    container_name: seekarr
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/config/config.json:ro
+      - ../.runtime:/logs
+    environment:
+      - SEEKARR_CONFIG=/config/config.json
+      - SEEKARR_RUN_AS_CRON=true
+      - SEEKARR_CRON_SCHEDULE=0 */12 * * *
+      - SEEKARR_DRY_RUN=false
+      # - SEEKARR_SONARR_API_KEY=your_key_here
+      # - SEEKARR_RADARR_API_KEY=your_key_here
+```
+
+Run it:
 
 ```bash
 cd /home/adaugherty/.openclaw/workspace/seekarr
-docker compose -f docker-compose.example.yml up -d --build
+docker compose up -d --build
 ```
 
 This reads `config.json` and writes logs to `.runtime/seekarr.log`.
