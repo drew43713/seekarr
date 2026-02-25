@@ -23,7 +23,7 @@
   },
   "runtime": {
     "run_as_cron": true,
-    "cron_schedule": "*/30 * * * *",
+    "cron_schedule": "0 */12 * * *",
     "dry_run": false
   }
 }

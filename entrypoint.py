@@ -12,12 +12,20 @@ def load_cfg(path):
         return json.load(f)
 
 
+def _env_bool(name, default):
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return v.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def main():
     cfg = load_cfg(CONFIG)
     runtime = cfg.get("runtime", {})
-    run_as_cron = bool(runtime.get("run_as_cron", False))
-    cron_schedule = runtime.get("cron_schedule", "*/30 * * * *")
-    dry_run = bool(runtime.get("dry_run", False))
+
+    run_as_cron = _env_bool("SEEKARR_RUN_AS_CRON", bool(runtime.get("run_as_cron", False)))
+    cron_schedule = os.environ.get("SEEKARR_CRON_SCHEDULE", runtime.get("cron_schedule", "0 */12 * * *"))
+    dry_run = _env_bool("SEEKARR_DRY_RUN", bool(runtime.get("dry_run", False)))
 
     cmd = f"python /app/seekarr.py --config {CONFIG}"
     if dry_run:

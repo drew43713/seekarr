@@ -8,3 +8,8 @@ services:
       - ../.runtime:/logs
     environment:
       - SEEKARR_CONFIG=/config/config.json
+      - SEEKARR_RUN_AS_CRON=true
+      - SEEKARR_CRON_SCHEDULE=0 */12 * * *
+      - SEEKARR_DRY_RUN=false
+      # - SEEKARR_SONARR_API_KEY=your_key_here
+      # - SEEKARR_RADARR_API_KEY=your_key_here
