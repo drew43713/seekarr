@@ -1,0 +1,10 @@
+services:
+  seekarr:
+    build: .
+    container_name: seekarr
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/config/config.json:ro
+      - ../.runtime:/logs
+    environment:
+      - SEEKARR_CONFIG=/config/config.json

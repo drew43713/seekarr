@@ -1,0 +1,29 @@
+{
+  "sonarr": {
+    "base_url": "http://10.0.0.92:8989/api/v3",
+    "api_key": "REPLACE_SONARR_API_KEY",
+    "api_key_env": "SEEKARR_SONARR_API_KEY",
+    "enabled": true
+  },
+  "radarr": {
+    "base_url": "http://10.0.0.92:7879/api/v3",
+    "api_key": "REPLACE_RADARR_API_KEY",
+    "api_key_env": "SEEKARR_RADARR_API_KEY",
+    "enabled": true
+  },
+  "limits": {
+    "max_series_searches_per_run": 25,
+    "max_movie_searches_per_run": 25,
+    "max_upgrade_episode_searches_per_run": 200,
+    "max_upgrade_movie_searches_per_run": 50,
+    "skip_if_queue_over": 200
+  },
+  "upgrades": {
+    "enabled": true
+  },
+  "runtime": {
+    "run_as_cron": true,
+    "cron_schedule": "*/30 * * * *",
+    "dry_run": false
+  }
+}
