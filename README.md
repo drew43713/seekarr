@@ -1,5 +1,7 @@
 # Seekarr
 
+![Seekarr banner](./social-preview-1280x640.png)
+
 Seekarr is a lightweight automation worker for Sonarr/Radarr.
 
 ## v1 Scope
