@@ -106,6 +106,38 @@ def apply_env_overrides(cfg):
     return cfg
 
 
+def load_state(cfg):
+    path = cfg.get("state", {}).get("path", "/config/seekarr_state.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return path, json.load(f)
+    except Exception:
+        return path, {"sonarr_missing_offset": 0, "radarr_missing_offset": 0}
+
+
+def save_state(path, state):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+            f.write("\n")
+    except Exception as e:
+        print(f"[state] warning: could not save state to {path}: {e}")
+
+
+def rotate_slice(items, offset, count):
+    if not items:
+        return [], 0
+    n = len(items)
+    offset = offset % n
+    out = []
+    i = offset
+    for _ in range(min(count, n)):
+        out.append(items[i])
+        i = (i + 1) % n
+    return out, i
+
+
 def run_once(cfg, dry_run=False):
     limits = cfg.get("limits", {})
     max_series = int(limits.get("max_series_searches_per_run", 25))
@@ -116,6 +148,7 @@ def run_once(cfg, dry_run=False):
 
     upgrades_enabled = bool(cfg.get("upgrades", {}).get("enabled", False))
     summary = defaultdict(int)
+    state_path, state = load_state(cfg)
 
     # Sonarr missing
     if cfg.get("sonarr", {}).get("enabled"):
@@ -126,13 +159,18 @@ def run_once(cfg, dry_run=False):
             recs, series_ids = sonarr_missing_ids(s_cfg)
             summary["sonarr_missing_episodes"] = len(recs)
             summary["sonarr_series_with_missing"] = len(series_ids)
-            for sid in series_ids[:max_series]:
+            offset = int(state.get("sonarr_missing_offset", 0))
+            batch, next_offset = rotate_slice(series_ids, offset, max_series)
+            summary["sonarr_missing_offset_start"] = offset
+            summary["sonarr_missing_offset_next"] = next_offset
+            for sid in batch:
                 payload = {"name": "MissingEpisodeSearch", "seriesId": sid}
                 if dry_run:
                     print(f"[dry-run][sonarr] would POST /command {payload}")
                 else:
                     api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
                     summary["sonarr_missing_commands"] += 1
+            state["sonarr_missing_offset"] = next_offset
         else:
             print(f"[sonarr] skipped missing due queue cap ({sq}>{queue_cap})")
 
@@ -158,13 +196,18 @@ def run_once(cfg, dry_run=False):
             recs, movie_ids = radarr_missing_ids(r_cfg)
             summary["radarr_missing_movies"] = len(recs)
             summary["radarr_movies_missing"] = len(movie_ids)
-            for mid in movie_ids[:max_movies]:
+            offset = int(state.get("radarr_missing_offset", 0))
+            batch, next_offset = rotate_slice(movie_ids, offset, max_movies)
+            summary["radarr_missing_offset_start"] = offset
+            summary["radarr_missing_offset_next"] = next_offset
+            for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command {payload}")
                 else:
                     api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_missing_commands"] += 1
+            state["radarr_missing_offset"] = next_offset
         else:
             print(f"[radarr] skipped missing due queue cap ({rq}>{queue_cap})")
 
@@ -180,6 +223,7 @@ def run_once(cfg, dry_run=False):
                     api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_upgrade_commands"] += 1
 
+    save_state(state_path, state)
     print("[summary]", dict(summary))
     return dict(summary)
 

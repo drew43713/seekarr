@@ -23,6 +23,9 @@
   "upgrades": {
     "enabled": true
   },
+  "state": {
+    "path": "/config/seekarr_state.json"
+  },
   "runtime": {
     "run_as_cron": true,
     "cron_schedule": "0 */12 * * *",

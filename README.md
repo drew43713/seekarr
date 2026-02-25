@@ -16,6 +16,8 @@ Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
   - Find items below cutoff and trigger upgrade searches (when enabled)
 - **Safe automation controls**
   - Queue-aware safety caps
+  - Rotating search windows for missing items (prevents re-searching only the first N each run)
+  - Persistent state file (`/config/seekarr_state.json` by default)
   - Config/env-driven runtime (one-shot or cron mode in Docker)
 
 ## Files
@@ -46,6 +48,7 @@ python3 seekarr.py --config config.json
 - `runtime.run_as_cron`: if `true`, container starts `crond`
 - `runtime.cron_schedule`: cron expression (default `0 */12 * * *`, twice daily)
 - `runtime.dry_run`: if `true`, cron jobs run in dry-run mode
+- `state.path`: state file for rotation offsets (default `/config/seekarr_state.json`)
 
 Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`
