@@ -87,11 +87,10 @@ def _boot_banner():
 def startup_checks(cfg):
     strict = _env_bool("SEEKARR_STARTUP_STRICT", True)
 
-    if not os.path.exists(CONFIG):
-        print(f"[startup] config missing: {CONFIG}")
-        return False
-
-    print(f"[startup] config loaded: {CONFIG}")
+    if os.path.exists(CONFIG):
+        print(f"[startup] config loaded: {CONFIG}")
+    else:
+        print(f"[startup] using environment-derived config (no file at {CONFIG})")
 
     ok = True
     sonarr = cfg.get("sonarr", {})
