@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -100,9 +101,10 @@ def main():
     if not startup_checks(cfg):
         sys.exit(1)
 
-    cmd = f"python /app/seekarr.py --config {CONFIG}"
+    cmd_parts = ["python", "/app/seekarr.py", "--config", CONFIG]
     if dry_run:
-        cmd += " --dry-run"
+        cmd_parts.append("--dry-run")
+    cmd = " ".join(shlex.quote(p) for p in cmd_parts)
 
     if run_as_cron:
         line = f"{cron_schedule} {cmd} >> /logs/seekarr.log 2>&1"
@@ -122,7 +124,7 @@ def main():
         os.execvp("crond", ["crond", "-f", "-l", "8"])
     else:
         print(f"[seekarr] READY: once mode | cmd={cmd}")
-        rc = subprocess.call(cmd, shell=True)
+        rc = subprocess.call(cmd_parts)
         sys.exit(rc)
 
 
