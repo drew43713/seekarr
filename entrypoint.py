@@ -3,6 +3,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+from urllib import request
 
 CONFIG = os.environ.get("SEEKARR_CONFIG", "/config/config.json")
 
@@ -19,6 +21,61 @@ def _env_bool(name, default):
     return v.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _check_api(base_url, api_key, label, retries=6, delay=5):
+    url = f"{base_url.rstrip('/')}/system/status"
+    for i in range(1, retries + 1):
+        try:
+            req = request.Request(url, headers={"X-Api-Key": api_key})
+            with request.urlopen(req, timeout=10) as r:
+                if r.status == 200:
+                    print(f"[startup] {label} API OK ({url})")
+                    return True
+        except Exception as e:
+            print(f"[startup] {label} API check failed attempt {i}/{retries}: {e}")
+            time.sleep(delay)
+    return False
+
+
+def startup_checks(cfg):
+    strict = _env_bool("SEEKARR_STARTUP_STRICT", True)
+
+    if not os.path.exists(CONFIG):
+        print(f"[startup] config missing: {CONFIG}")
+        return False
+
+    print(f"[startup] config loaded: {CONFIG}")
+
+    ok = True
+    sonarr = cfg.get("sonarr", {})
+    radarr = cfg.get("radarr", {})
+
+    if sonarr.get("enabled"):
+        s_key = os.environ.get(sonarr.get("api_key_env", "SEEKARR_SONARR_API_KEY"), sonarr.get("api_key", ""))
+        if not s_key:
+            print("[startup] Sonarr enabled but API key missing")
+            ok = False
+        else:
+            ok = _check_api(sonarr.get("base_url", ""), s_key, "sonarr") and ok
+
+    if radarr.get("enabled"):
+        r_key = os.environ.get(radarr.get("api_key_env", "SEEKARR_RADARR_API_KEY"), radarr.get("api_key", ""))
+        if not r_key:
+            print("[startup] Radarr enabled but API key missing")
+            ok = False
+        else:
+            ok = _check_api(radarr.get("base_url", ""), r_key, "radarr") and ok
+
+    if not ok and strict:
+        print("[startup] strict mode enabled; refusing to continue")
+        return False
+
+    if not ok:
+        print("[startup] checks failed, continuing because SEEKARR_STARTUP_STRICT=false")
+    else:
+        print("[startup] all checks passed")
+    return True
+
+
 def main():
     cfg = load_cfg(CONFIG)
     runtime = cfg.get("runtime", {})
@@ -26,6 +83,9 @@ def main():
     run_as_cron = _env_bool("SEEKARR_RUN_AS_CRON", bool(runtime.get("run_as_cron", False)))
     cron_schedule = os.environ.get("SEEKARR_CRON_SCHEDULE", runtime.get("cron_schedule", "0 */12 * * *"))
     dry_run = _env_bool("SEEKARR_DRY_RUN", bool(runtime.get("dry_run", False)))
+
+    if not startup_checks(cfg):
+        sys.exit(1)
 
     cmd = f"python /app/seekarr.py --config {CONFIG}"
     if dry_run:

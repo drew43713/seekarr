@@ -45,6 +45,16 @@ Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`
 - `SEEKARR_CRON_SCHEDULE="0 */12 * * *"`
 - `SEEKARR_DRY_RUN=true|false`
+- `SEEKARR_STARTUP_STRICT=true|false` (default `true`)
+
+## Startup checks
+
+On container boot, Seekarr now validates:
+- config file exists/loads
+- Sonarr API connectivity (`/system/status`)
+- Radarr API connectivity (`/system/status`)
+
+If checks fail and `SEEKARR_STARTUP_STRICT=true`, container exits instead of silently running broken.
 
 ### Secrets / API keys
 
