@@ -56,6 +56,12 @@ On container boot, Seekarr now validates:
 
 If checks fail and `SEEKARR_STARTUP_STRICT=true`, container exits instead of silently running broken.
 
+## Boot/ready visibility
+
+Seekarr now prints a startup banner and an explicit ready line:
+- `READY: cron scheduler active ...` in `docker logs`
+- same ready line is appended to `/logs/seekarr.log`
+
 ### Secrets / API keys
 
 Do **not** commit real API keys.

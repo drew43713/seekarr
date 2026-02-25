@@ -36,6 +36,13 @@ def _check_api(base_url, api_key, label, retries=6, delay=5):
     return False
 
 
+def _boot_banner():
+    print("[seekarr] ========================================")
+    print("[seekarr] Booting Seekarr...")
+    print("[seekarr] Scanning for missing + cutoff candidates")
+    print("[seekarr] ========================================")
+
+
 def startup_checks(cfg):
     strict = _env_bool("SEEKARR_STARTUP_STRICT", True)
 
@@ -77,6 +84,7 @@ def startup_checks(cfg):
 
 
 def main():
+    _boot_banner()
     cfg = load_cfg(CONFIG)
     runtime = cfg.get("runtime", {})
 
@@ -94,12 +102,21 @@ def main():
     if run_as_cron:
         line = f"{cron_schedule} {cmd} >> /logs/seekarr.log 2>&1"
         os.makedirs("/etc/crontabs", exist_ok=True)
+        os.makedirs("/logs", exist_ok=True)
         with open("/etc/crontabs/root", "w", encoding="utf-8") as f:
             f.write(line + "\n")
-        print(f"[seekarr] cron mode enabled: {line}")
+
+        ready_msg = (
+            f"[seekarr] READY: cron scheduler active | schedule='{cron_schedule}' "
+            f"| dry_run={str(dry_run).lower()}"
+        )
+        print(ready_msg)
+        with open("/logs/seekarr.log", "a", encoding="utf-8") as f:
+            f.write(ready_msg + "\n")
+
         os.execvp("crond", ["crond", "-f", "-l", "8"])
     else:
-        print(f"[seekarr] once mode: {cmd}")
+        print(f"[seekarr] READY: once mode | cmd={cmd}")
         rc = subprocess.call(cmd, shell=True)
         sys.exit(rc)
 
