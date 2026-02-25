@@ -90,6 +90,7 @@ If checks fail and `SEEKARR_STARTUP_STRICT=true`, container exits instead of sil
 Seekarr now prints a startup banner and an explicit ready line:
 - `READY: cron scheduler active ...` in `docker logs`
 - same ready line is appended to `/logs/seekarr.log`
+- cron run output is mirrored to both `docker logs` and `/logs/seekarr.log`
 
 ### Secrets / API keys and endpoints
 

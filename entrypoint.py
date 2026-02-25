@@ -171,7 +171,8 @@ def main():
     cmd = " ".join(shlex.quote(p) for p in cmd_parts)
 
     if run_as_cron:
-        line = f"{cron_schedule} {cmd} >> /logs/seekarr.log 2>&1"
+        # Send cron output to both container logs and persistent file (low-noise: seekarr.py prints concise summary)
+        line = f"{cron_schedule} {cmd} 2>&1 | tee -a /logs/seekarr.log"
         os.makedirs("/etc/crontabs", exist_ok=True)
         os.makedirs("/logs", exist_ok=True)
         with open("/etc/crontabs/root", "w", encoding="utf-8") as f:
