@@ -6,6 +6,11 @@ import sys
 import time
 from urllib import request
 
+
+# Ensure startup messages appear immediately in container logs
+from functools import partial
+print = partial(print, flush=True)
+
 CONFIG = os.environ.get("SEEKARR_CONFIG", "/config/config.json")
 
 
