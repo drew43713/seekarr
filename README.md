@@ -20,6 +20,21 @@ Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
   - Persistent state file (`/config/seekarr_state.json` by default)
   - Config/env-driven runtime (one-shot or cron mode in Docker)
 
+### Rotation behavior (important)
+
+Seekarr uses persistent offsets to rotate each category independently:
+- Sonarr missing series
+- Radarr missing movies
+- Sonarr cutoff-upgrade episodes
+- Radarr cutoff-upgrade movies
+
+On each run, Seekarr:
+1. takes the next batch up to your per-run limits,
+2. advances offsets,
+3. wraps to the beginning when reaching the end.
+
+This means repeated runs **cycle across the full eligible library over time** rather than repeatedly searching only the first N items.
+
 ## Files
 
 - `seekarr.py` — main runner
