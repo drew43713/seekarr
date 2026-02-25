@@ -16,8 +16,43 @@ CONFIG = os.environ.get("SEEKARR_CONFIG", "/config/config.json")
 
 
 def load_cfg(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    # Build minimal config from environment when config file is absent
+    print(f"[startup] config not found at {path}; building config from environment")
+    return {
+        "sonarr": {
+            "base_url": os.environ.get("SEEKARR_SONARR_BASE_URL", ""),
+            "base_url_env": "SEEKARR_SONARR_BASE_URL",
+            "api_key": os.environ.get("SEEKARR_SONARR_API_KEY", ""),
+            "api_key_env": "SEEKARR_SONARR_API_KEY",
+            "enabled": _env_bool("SEEKARR_SONARR_ENABLED", True),
+        },
+        "radarr": {
+            "base_url": os.environ.get("SEEKARR_RADARR_BASE_URL", ""),
+            "base_url_env": "SEEKARR_RADARR_BASE_URL",
+            "api_key": os.environ.get("SEEKARR_RADARR_API_KEY", ""),
+            "api_key_env": "SEEKARR_RADARR_API_KEY",
+            "enabled": _env_bool("SEEKARR_RADARR_ENABLED", True),
+        },
+        "limits": {
+            "max_series_searches_per_run": int(os.environ.get("SEEKARR_MAX_SERIES_SEARCHES", "25")),
+            "max_movie_searches_per_run": int(os.environ.get("SEEKARR_MAX_MOVIE_SEARCHES", "25")),
+            "max_upgrade_episode_searches_per_run": int(os.environ.get("SEEKARR_MAX_UPGRADE_EPISODES", "200")),
+            "max_upgrade_movie_searches_per_run": int(os.environ.get("SEEKARR_MAX_UPGRADE_MOVIES", "50")),
+            "skip_if_queue_over": int(os.environ.get("SEEKARR_SKIP_IF_QUEUE_OVER", "200")),
+        },
+        "upgrades": {
+            "enabled": _env_bool("SEEKARR_UPGRADES_ENABLED", True),
+        },
+        "runtime": {
+            "run_as_cron": _env_bool("SEEKARR_RUN_AS_CRON", True),
+            "cron_schedule": os.environ.get("SEEKARR_CRON_SCHEDULE", "0 */12 * * *"),
+            "dry_run": _env_bool("SEEKARR_DRY_RUN", False),
+        },
+    }
 
 
 def _env_bool(name, default):
