@@ -66,12 +66,14 @@ Use this as a starting `docker-compose.yml`:
 ```yaml
 services:
   seekarr:
-    build: .
+    build:
+      context: https://github.com/drew43713/seekarr.git#main
+      dockerfile: Dockerfile
     container_name: seekarr
     restart: unless-stopped
     volumes:
       - ./config.json:/config/config.json:ro
-      - ../.runtime:/logs
+      - ./logs:/logs
     environment:
       - SEEKARR_CONFIG=/config/config.json
       - SEEKARR_RUN_AS_CRON=true
@@ -84,11 +86,10 @@ services:
 Run it:
 
 ```bash
-cd /home/adaugherty/.openclaw/workspace/seekarr
 docker compose up -d --build
 ```
 
-This reads `config.json` and writes logs to `.runtime/seekarr.log`.
+This reads local `config.json` and writes logs to `./logs/seekarr.log`.
 
 ## Notes
 

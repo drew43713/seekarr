@@ -1,11 +1,13 @@
 services:
   seekarr:
-    build: .
+    build:
+      context: https://github.com/drew43713/seekarr.git#main
+      dockerfile: Dockerfile
     container_name: seekarr
     restart: unless-stopped
     volumes:
       - ./config.json:/config/config.json:ro
-      - ../.runtime:/logs
+      - ./logs:/logs
     environment:
       - SEEKARR_CONFIG=/config/config.json
       - SEEKARR_RUN_AS_CRON=true
