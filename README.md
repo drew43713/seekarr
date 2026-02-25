@@ -62,18 +62,18 @@ Seekarr now prints a startup banner and an explicit ready line:
 - `READY: cron scheduler active ...` in `docker logs`
 - same ready line is appended to `/logs/seekarr.log`
 
-### Secrets / API keys
+### Secrets / API keys and endpoints
 
 Do **not** commit real API keys.
 
-You can either:
-1. set keys in `config.json` (local only, file is gitignored), or
-2. use environment variables (preferred):
+You can set values in `config.json` (local only, gitignored) or prefer env vars:
 
+- `SEEKARR_SONARR_BASE_URL`
+- `SEEKARR_RADARR_BASE_URL`
 - `SEEKARR_SONARR_API_KEY`
 - `SEEKARR_RADARR_API_KEY`
 
-`config.example.json` includes `api_key_env` fields so users can override keys via env vars.
+`config.example.json` includes `*_env` fields so users can override both API keys and base URLs via env vars.
 
 ## Docker Compose (recommended)
 

@@ -64,19 +64,27 @@ def startup_checks(cfg):
 
     if sonarr.get("enabled"):
         s_key = os.environ.get(sonarr.get("api_key_env", "SEEKARR_SONARR_API_KEY"), sonarr.get("api_key", ""))
+        s_url = os.environ.get(sonarr.get("base_url_env", "SEEKARR_SONARR_BASE_URL"), sonarr.get("base_url", ""))
         if not s_key:
             print("[startup] Sonarr enabled but API key missing")
             ok = False
+        elif not s_url:
+            print("[startup] Sonarr enabled but base_url missing")
+            ok = False
         else:
-            ok = _check_api(sonarr.get("base_url", ""), s_key, "sonarr") and ok
+            ok = _check_api(s_url, s_key, "sonarr") and ok
 
     if radarr.get("enabled"):
         r_key = os.environ.get(radarr.get("api_key_env", "SEEKARR_RADARR_API_KEY"), radarr.get("api_key", ""))
+        r_url = os.environ.get(radarr.get("base_url_env", "SEEKARR_RADARR_BASE_URL"), radarr.get("base_url", ""))
         if not r_key:
             print("[startup] Radarr enabled but API key missing")
             ok = False
+        elif not r_url:
+            print("[startup] Radarr enabled but base_url missing")
+            ok = False
         else:
-            ok = _check_api(radarr.get("base_url", ""), r_key, "radarr") and ok
+            ok = _check_api(r_url, r_key, "radarr") and ok
 
     if not ok and strict:
         print("[startup] strict mode enabled; refusing to continue")

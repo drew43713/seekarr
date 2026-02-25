@@ -1,12 +1,14 @@
 {
   "sonarr": {
-    "base_url": "http://10.0.0.92:8989/api/v3",
+    "base_url": "http://sonarr:8989/api/v3",
+    "base_url_env": "SEEKARR_SONARR_BASE_URL",
     "api_key": "REPLACE_SONARR_API_KEY",
     "api_key_env": "SEEKARR_SONARR_API_KEY",
     "enabled": true
   },
   "radarr": {
-    "base_url": "http://10.0.0.92:7879/api/v3",
+    "base_url": "http://radarr:7878/api/v3",
+    "base_url_env": "SEEKARR_RADARR_BASE_URL",
     "api_key": "REPLACE_RADARR_API_KEY",
     "api_key_env": "SEEKARR_RADARR_API_KEY",
     "enabled": true

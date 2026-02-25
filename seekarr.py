@@ -69,19 +69,27 @@ def radarr_cutoff_movie_ids(app_cfg):
 
 
 def apply_env_overrides(cfg):
-    # Allow secrets via env vars so users don't store keys in files
-    sonarr_env = cfg.get("sonarr", {}).get("api_key_env") or "SEEKARR_SONARR_API_KEY"
-    radarr_env = cfg.get("radarr", {}).get("api_key_env") or "SEEKARR_RADARR_API_KEY"
+    # Allow secrets + endpoints via env vars so users don't hardcode local infra
+    sonarr_api_env = cfg.get("sonarr", {}).get("api_key_env") or "SEEKARR_SONARR_API_KEY"
+    radarr_api_env = cfg.get("radarr", {}).get("api_key_env") or "SEEKARR_RADARR_API_KEY"
+    sonarr_url_env = cfg.get("sonarr", {}).get("base_url_env") or "SEEKARR_SONARR_BASE_URL"
+    radarr_url_env = cfg.get("radarr", {}).get("base_url_env") or "SEEKARR_RADARR_BASE_URL"
 
     if cfg.get("sonarr", {}).get("enabled"):
-        env_val = os.environ.get(sonarr_env)
-        if env_val:
-            cfg["sonarr"]["api_key"] = env_val
+        env_key = os.environ.get(sonarr_api_env)
+        env_url = os.environ.get(sonarr_url_env)
+        if env_key:
+            cfg["sonarr"]["api_key"] = env_key
+        if env_url:
+            cfg["sonarr"]["base_url"] = env_url
 
     if cfg.get("radarr", {}).get("enabled"):
-        env_val = os.environ.get(radarr_env)
-        if env_val:
-            cfg["radarr"]["api_key"] = env_val
+        env_key = os.environ.get(radarr_api_env)
+        env_url = os.environ.get(radarr_url_env)
+        if env_key:
+            cfg["radarr"]["api_key"] = env_key
+        if env_url:
+            cfg["radarr"]["base_url"] = env_url
 
     return cfg
 
