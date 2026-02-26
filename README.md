@@ -22,7 +22,7 @@ Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
   - Run-window change reporting in summary (grab/import counts + imported titles)
   - Config/env-driven runtime (one-shot or cron mode in Docker)
 
-### Rotation behavior (important)
+### Rotation behavior
 
 Seekarr uses persistent offsets to rotate each category independently:
 - Sonarr missing series
@@ -84,7 +84,7 @@ This reads local `config.json` and writes logs to `./logs/seekarr.log`.
 - `entrypoint.py` — runtime launcher (once/cron mode)
 - `docker-compose.example.yml` — local container example
 
-## Config options (important)
+## Config options
 
 - `upgrades.enabled`: enable cutoff upgrade searches
 - `runtime.run_as_cron`: if `true`, container starts `crond`
