@@ -1,6 +1,6 @@
 # Seekarr
 
-![Seekarr banner](./social-preview-1280x640.png)
+![Seekarr banner](./assets/social-preview-1280x640.png)
 
 Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
 
