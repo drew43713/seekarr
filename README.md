@@ -50,8 +50,11 @@ services:
     container_name: seekarr
     restart: unless-stopped
     volumes:
-      # Optional: keep this mount if you want a persistent editable config file.
-      # If missing, Seekarr auto-generates /config/config.json from env vars at boot.
+      # Optional but recommended: mount config.json if you want a persistent editable file.
+      # Behavior:
+      # - If /config/config.json exists, Seekarr loads it first.
+      # - Then env overrides are applied (env values take precedence).
+      # - If /config/config.json is missing, Seekarr auto-builds it from env values at startup.
       - ./config.json:/config/config.json
       - ./logs:/logs
     environment:
@@ -74,7 +77,12 @@ Run it:
 docker compose up -d --build
 ```
 
-This reads local `config.json` and writes logs to `./logs/seekarr.log`.
+This reads local `config.json` (if mounted), applies env overrides, and writes logs to `./logs/seekarr.log`.
+
+Config precedence summary:
+1. Built-in defaults
+2. `config.json` values
+3. Environment variables (highest priority)
 
 ## Files
 

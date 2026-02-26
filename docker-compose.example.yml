@@ -6,6 +6,9 @@ services:
     container_name: seekarr
     restart: unless-stopped
     volumes:
+      # Optional but recommended for a persistent editable config file.
+      # If omitted, Seekarr builds /config/config.json from environment variables on boot.
+      # Env vars still override config values when both are present.
       - ./config.json:/config/config.json:ro
       - ./logs:/logs
     environment:
