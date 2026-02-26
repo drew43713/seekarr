@@ -84,20 +84,6 @@ This reads local `config.json` and writes logs to `./logs/seekarr.log`.
 - `entrypoint.py` — runtime launcher (once/cron mode)
 - `docker-compose.example.yml` — local container example
 
-## Quick Start (host)
-
-```bash
-cd /home/adaugherty/.openclaw/workspace/seekarr
-cp config.example.json config.json
-python3 seekarr.py --config config.json --dry-run
-```
-
-## Run live once
-
-```bash
-python3 seekarr.py --config config.json
-```
-
 ## Config options (important)
 
 - `upgrades.enabled`: enable cutoff upgrade searches
