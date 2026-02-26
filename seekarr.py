@@ -3,6 +3,8 @@ import argparse
 import json
 import os
 import sys
+import uuid
+from datetime import datetime, timezone
 from collections import defaultdict
 from urllib import request, parse, error
 
@@ -143,7 +145,62 @@ def rotate_slice(items, offset, count):
     return out, i
 
 
+def _parse_iso_utc(s):
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _iso_utc(dt):
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def recent_changes(app_cfg, media_type, started_at, finished_at):
+    # media_type: "sonarr" or "radarr"
+    try:
+        hist = api_get(app_cfg["base_url"], app_cfg["api_key"], "/history", {"page": 1, "pageSize": 500})
+        recs = hist.get("records", [])
+    except Exception:
+        return {"grabs": 0, "imports": 0, "titles": []}
+
+    if media_type == "sonarr":
+        items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/series")
+        title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
+        id_key = "seriesId"
+    else:
+        items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/movie")
+        title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
+        id_key = "movieId"
+
+    grabs = 0
+    imports = 0
+    titles = []
+    seen = set()
+    for r in recs:
+        dt = _parse_iso_utc(r.get("date"))
+        if not dt or dt < started_at or dt > finished_at:
+            continue
+        ev = r.get("eventType")
+        if ev == "grabbed":
+            grabs += 1
+        elif ev == "downloadFolderImported":
+            imports += 1
+            mid = r.get(id_key)
+            t = title_map.get(mid) or r.get("sourceTitle")
+            if t and t not in seen:
+                seen.add(t)
+                titles.append(t)
+
+    return {"grabs": grabs, "imports": imports, "titles": titles[:20]}
+
+
 def run_once(cfg, dry_run=False):
+    run_started = datetime.now(timezone.utc)
+    run_id = uuid.uuid4().hex[:10]
+
     limits = cfg.get("limits", {})
     max_series = int(limits.get("max_series_searches_per_run", 25))
     max_movies = int(limits.get("max_movie_searches_per_run", 25))
@@ -239,6 +296,24 @@ def run_once(cfg, dry_run=False):
                     api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_upgrade_commands"] += 1
             state["radarr_cutoff_offset"] = next_cutoff_offset
+
+    run_finished = datetime.now(timezone.utc)
+
+    summary["run_id"] = run_id
+    summary["run_started_at"] = _iso_utc(run_started)
+    summary["run_finished_at"] = _iso_utc(run_finished)
+
+    if cfg.get("sonarr", {}).get("enabled"):
+        son_changes = recent_changes(cfg["sonarr"], "sonarr", run_started, run_finished)
+        summary["sonarr_grabs_in_run_window"] = son_changes["grabs"]
+        summary["sonarr_imports_in_run_window"] = son_changes["imports"]
+        summary["sonarr_import_titles_in_run_window"] = son_changes["titles"]
+
+    if cfg.get("radarr", {}).get("enabled"):
+        rad_changes = recent_changes(cfg["radarr"], "radarr", run_started, run_finished)
+        summary["radarr_grabs_in_run_window"] = rad_changes["grabs"]
+        summary["radarr_imports_in_run_window"] = rad_changes["imports"]
+        summary["radarr_import_titles_in_run_window"] = rad_changes["titles"]
 
     save_state(state_path, state)
     print("[summary]", dict(summary))

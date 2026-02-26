@@ -18,6 +18,8 @@ Seekarr is a lightweight Sonarr/Radarr automation worker focused on two jobs:
   - Queue-aware safety caps
   - Rotating search windows for missing **and cutoff-upgrade** items (prevents re-searching only the first N each run)
   - Persistent state file (`/config/seekarr_state.json` by default)
+  - Per-run correlation metadata in summary (`run_id`, `run_started_at`, `run_finished_at`)
+  - Run-window change reporting in summary (grab/import counts + imported titles)
   - Config/env-driven runtime (one-shot or cron mode in Docker)
 
 ### Rotation behavior (important)
