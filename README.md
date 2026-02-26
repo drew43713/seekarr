@@ -37,6 +37,45 @@ On each run, Seekarr:
 
 This means repeated runs **cycle across the full eligible library over time** rather than repeatedly searching only the first N items.
 
+## Docker Compose (recommended)
+
+Use this as a starting `docker-compose.yml`:
+
+```yaml
+services:
+  seekarr:
+    build:
+      context: https://github.com/drew43713/seekarr.git#main
+      dockerfile: Dockerfile
+    container_name: seekarr
+    restart: unless-stopped
+    volumes:
+      # Optional: keep this mount if you want a persistent editable config file.
+      # If missing, Seekarr auto-generates /config/config.json from env vars at boot.
+      - ./config.json:/config/config.json
+      - ./logs:/logs
+    environment:
+      - SEEKARR_CONFIG=/config/config.json
+      - SEEKARR_RUN_AS_CRON=true
+      - SEEKARR_CRON_SCHEDULE=0 */12 * * *
+      - SEEKARR_DRY_RUN=false
+      - SEEKARR_TIMEZONE=America/New_York
+      - SEEKARR_UPGRADES_ENABLED=true
+      - SEEKARR_STARTUP_STRICT=true
+      - SEEKARR_SONARR_BASE_URL=http://sonarr:8989/api/v3
+      - SEEKARR_RADARR_BASE_URL=http://radarr:7878/api/v3
+      - SEEKARR_SONARR_API_KEY=your_key_here
+      - SEEKARR_RADARR_API_KEY=your_key_here
+```
+
+Run it:
+
+```bash
+docker compose up -d --build
+```
+
+This reads local `config.json` and writes logs to `./logs/seekarr.log`.
+
 ## Files
 
 - `seekarr.py` — main runner
@@ -96,9 +135,7 @@ Seekarr now prints a startup banner and an explicit ready line:
 
 ### Secrets / API keys and endpoints
 
-Do **not** commit real API keys.
-
-You can set values in `config.json` (local only, gitignored) or prefer env vars:
+Keep API keys private. Store them in local `config.json` (gitignored) or set them via environment variables:
 
 - `SEEKARR_SONARR_BASE_URL`
 - `SEEKARR_RADARR_BASE_URL`
@@ -107,45 +144,6 @@ You can set values in `config.json` (local only, gitignored) or prefer env vars:
 - `SEEKARR_UPGRADES_ENABLED=true|false`
 
 `config.example.json` includes `*_env` fields so users can override both API keys and base URLs via env vars.
-
-## Docker Compose (recommended)
-
-Use this as a starting `docker-compose.yml`:
-
-```yaml
-services:
-  seekarr:
-    build:
-      context: https://github.com/drew43713/seekarr.git#main
-      dockerfile: Dockerfile
-    container_name: seekarr
-    restart: unless-stopped
-    volumes:
-      # Optional: keep this mount if you want a persistent editable config file.
-      # If missing, Seekarr auto-generates /config/config.json from env vars at boot.
-      - ./config.json:/config/config.json
-      - ./logs:/logs
-    environment:
-      - SEEKARR_CONFIG=/config/config.json
-      - SEEKARR_RUN_AS_CRON=true
-      - SEEKARR_CRON_SCHEDULE=0 */12 * * *
-      - SEEKARR_DRY_RUN=false
-      - SEEKARR_TIMEZONE=America/New_York
-      - SEEKARR_UPGRADES_ENABLED=true
-      - SEEKARR_STARTUP_STRICT=true
-      - SEEKARR_SONARR_BASE_URL=http://sonarr:8989/api/v3
-      - SEEKARR_RADARR_BASE_URL=http://radarr:7878/api/v3
-      - SEEKARR_SONARR_API_KEY=your_key_here
-      - SEEKARR_RADARR_API_KEY=your_key_here
-```
-
-Run it:
-
-```bash
-docker compose up -d --build
-```
-
-This reads local `config.json` and writes logs to `./logs/seekarr.log`.
 
 ## Notes
 
