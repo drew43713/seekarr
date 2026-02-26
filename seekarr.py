@@ -8,6 +8,10 @@ from datetime import datetime, timezone
 from collections import defaultdict
 from urllib import request, parse, error
 
+TITLE_LOG_LIMIT = 25
+KEEP_LOG_RUNS = 4
+LOG_FILE_PATH = "/logs/seekarr.log"
+
 
 def api_get(base_url, api_key, path, params=None):
     url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
@@ -197,6 +201,87 @@ def recent_changes(app_cfg, media_type, started_at, finished_at):
     return {"grabs": grabs, "imports": imports, "titles": titles[:20]}
 
 
+def _limit_titles(items, limit=TITLE_LOG_LIMIT):
+    return items[:limit]
+
+
+def _series_title_map(app_cfg):
+    try:
+        rows = api_get(app_cfg["base_url"], app_cfg["api_key"], "/series")
+        return {x.get("id"): x.get("title") for x in rows if x.get("id") is not None}
+    except Exception:
+        return {}
+
+
+def _movie_title_map(app_cfg):
+    try:
+        rows = api_get(app_cfg["base_url"], app_cfg["api_key"], "/movie")
+        return {x.get("id"): x.get("title") for x in rows if x.get("id") is not None}
+    except Exception:
+        return {}
+
+
+def _trim_log_to_last_runs(path=LOG_FILE_PATH, keep_runs=KEEP_LOG_RUNS):
+    try:
+        if keep_runs < 1 or not os.path.exists(path):
+            return
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        marker = "===== SEEKARR RUN START ====="
+        starts = []
+        pos = 0
+        while True:
+            idx = content.find(marker, pos)
+            if idx == -1:
+                break
+            starts.append(idx)
+            pos = idx + len(marker)
+        if len(starts) <= keep_runs:
+            return
+        keep_from = starts[-keep_runs]
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content[keep_from:])
+    except Exception as e:
+        print(f"[log] warning: could not trim log file: {e}")
+
+
+def _print_run_report(summary):
+    rid = summary.get("run_id")
+    print(f"[run:{rid}] ===== SEEKARR RUN START =====")
+    print(f"[run:{rid}] Started:  {summary.get('run_started_at')}")
+    print(f"[run:{rid}] Finished: {summary.get('run_finished_at')}")
+
+    print(f"[run:{rid}] Commands sent -> Sonarr missing: {summary.get('sonarr_missing_commands', 0)}, "
+          f"Sonarr upgrades: {summary.get('sonarr_upgrade_commands', 0)}, "
+          f"Radarr missing: {summary.get('radarr_missing_commands', 0)}, "
+          f"Radarr upgrades: {summary.get('radarr_upgrade_commands', 0)}")
+
+    def section(label, total, titles):
+        print(f"[run:{rid}] {label}: total selected={total}, titles listed={len(titles)}")
+        for t in titles:
+            print(f"[run:{rid}]   - {t}")
+
+    section("Sonarr missing series", summary.get("sonarr_missing_selected_total", 0), summary.get("sonarr_missing_titles", []))
+    section("Sonarr upgrade series", summary.get("sonarr_upgrade_selected_total", 0), summary.get("sonarr_upgrade_series", []))
+    section("Radarr missing movies", summary.get("radarr_missing_selected_total", 0), summary.get("radarr_missing_titles", []))
+    section("Radarr upgrade movies", summary.get("radarr_upgrade_selected_total", 0), summary.get("radarr_upgrade_titles", []))
+
+    print(f"[run:{rid}] In-run results -> Sonarr grabs/imports: {summary.get('sonarr_grabs_in_run_window', 0)}/{summary.get('sonarr_imports_in_run_window', 0)}; "
+          f"Radarr grabs/imports: {summary.get('radarr_grabs_in_run_window', 0)}/{summary.get('radarr_imports_in_run_window', 0)}")
+
+    if summary.get("sonarr_import_titles_in_run_window"):
+        print(f"[run:{rid}] Sonarr imported titles in run window:")
+        for t in summary.get("sonarr_import_titles_in_run_window", []):
+            print(f"[run:{rid}]   - {t}")
+
+    if summary.get("radarr_import_titles_in_run_window"):
+        print(f"[run:{rid}] Radarr imported titles in run window:")
+        for t in summary.get("radarr_import_titles_in_run_window", []):
+            print(f"[run:{rid}]   - {t}")
+
+    print(f"[run:{rid}] ===== SEEKARR RUN END =====")
+
+
 def run_once(cfg, dry_run=False):
     run_started = datetime.now(timezone.utc)
     run_id = uuid.uuid4().hex[:10]
@@ -212,6 +297,9 @@ def run_once(cfg, dry_run=False):
     summary = defaultdict(int)
     state_path, state = load_state(cfg)
 
+    sonarr_titles = _series_title_map(cfg["sonarr"]) if cfg.get("sonarr", {}).get("enabled") else {}
+    radarr_titles = _movie_title_map(cfg["radarr"]) if cfg.get("radarr", {}).get("enabled") else {}
+
     # Sonarr missing
     if cfg.get("sonarr", {}).get("enabled"):
         s_cfg = cfg["sonarr"]
@@ -225,6 +313,8 @@ def run_once(cfg, dry_run=False):
             batch, next_offset = rotate_slice(series_ids, offset, max_series)
             summary["sonarr_missing_offset_start"] = offset
             summary["sonarr_missing_offset_next"] = next_offset
+            summary["sonarr_missing_selected_total"] = len(batch)
+            summary["sonarr_missing_titles"] = _limit_titles([sonarr_titles.get(sid, f"series:{sid}") for sid in batch])
             for sid in batch:
                 payload = {"name": "MissingEpisodeSearch", "seriesId": sid}
                 if dry_run:
@@ -244,6 +334,17 @@ def run_once(cfg, dry_run=False):
             batch, next_cutoff_offset = rotate_slice(episode_ids, cutoff_offset, max_upgrade_eps)
             summary["sonarr_cutoff_offset_start"] = cutoff_offset
             summary["sonarr_cutoff_offset_next"] = next_cutoff_offset
+            summary["sonarr_upgrade_selected_total"] = len(batch)
+            ep_to_series = {r.get("id"): r.get("seriesId") for r in recs if r.get("id") is not None}
+            series_names = []
+            seen_series = set()
+            for eid in batch:
+                sid = ep_to_series.get(eid)
+                name = sonarr_titles.get(sid, f"series:{sid}") if sid is not None else f"episode:{eid}"
+                if name not in seen_series:
+                    seen_series.add(name)
+                    series_names.append(name)
+            summary["sonarr_upgrade_series"] = _limit_titles(series_names)
             if batch:
                 payload = {"name": "EpisodeSearch", "episodeIds": batch}
                 if dry_run:
@@ -269,6 +370,8 @@ def run_once(cfg, dry_run=False):
             batch, next_offset = rotate_slice(movie_ids, offset, max_movies)
             summary["radarr_missing_offset_start"] = offset
             summary["radarr_missing_offset_next"] = next_offset
+            summary["radarr_missing_selected_total"] = len(batch)
+            summary["radarr_missing_titles"] = _limit_titles([radarr_titles.get(mid, f"movie:{mid}") for mid in batch])
             for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
                 if dry_run:
@@ -288,6 +391,8 @@ def run_once(cfg, dry_run=False):
             batch, next_cutoff_offset = rotate_slice(movie_ids, cutoff_offset, max_upgrade_movies)
             summary["radarr_cutoff_offset_start"] = cutoff_offset
             summary["radarr_cutoff_offset_next"] = next_cutoff_offset
+            summary["radarr_upgrade_selected_total"] = len(batch)
+            summary["radarr_upgrade_titles"] = _limit_titles([radarr_titles.get(mid, f"movie:{mid}") for mid in batch])
             for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
                 if dry_run:
@@ -316,8 +421,10 @@ def run_once(cfg, dry_run=False):
         summary["radarr_import_titles_in_run_window"] = rad_changes["titles"]
 
     save_state(state_path, state)
-    print("[summary]", dict(summary))
-    return dict(summary)
+    summary_dict = dict(summary)
+    _print_run_report(summary_dict)
+    _trim_log_to_last_runs()
+    return summary_dict
 
 
 def main():
