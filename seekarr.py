@@ -13,6 +13,30 @@ KEEP_LOG_RUNS = 4
 LOG_FILE_PATH = "/logs/seekarr.log"
 
 
+class _Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+        return len(data)
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
+def _enable_dual_logging(path=LOG_FILE_PATH):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        f = open(path, "a", encoding="utf-8", buffering=1)
+        sys.stdout = _Tee(sys.__stdout__, f)
+        sys.stderr = _Tee(sys.__stderr__, f)
+    except Exception as e:
+        print(f"[log] warning: could not enable file logging to {path}: {e}")
+
+
 def api_get(base_url, api_key, path, params=None):
     url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     if params:
@@ -437,6 +461,8 @@ def run_once(cfg, dry_run=False):
 
 
 def main():
+    _enable_dual_logging()
+
     p = argparse.ArgumentParser(description="Seekarr")
     p.add_argument("--config", default="config.json")
     p.add_argument("--dry-run", action="store_true")
