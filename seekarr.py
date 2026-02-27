@@ -5,6 +5,7 @@ import os
 import sys
 import uuid
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from collections import defaultdict
 from urllib import request, parse, error
 
@@ -186,6 +187,22 @@ def _iso_utc(dt):
     return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _get_log_timezone(cfg):
+    tz_name = (cfg.get("runtime", {}) or {}).get("timezone") or "UTC"
+    try:
+        return tz_name, ZoneInfo(tz_name)
+    except Exception:
+        print(f"[config] warning: invalid timezone '{tz_name}', falling back to UTC")
+        return "UTC", timezone.utc
+
+
+def _fmt_iso_in_tz(iso_utc, tzinfo):
+    dt = _parse_iso_utc(iso_utc)
+    if not dt:
+        return iso_utc
+    return dt.astimezone(tzinfo).isoformat()
+
+
 def recent_changes(app_cfg, media_type, started_at, finished_at):
     # media_type: "sonarr" or "radarr"
     try:
@@ -271,19 +288,28 @@ def _trim_log_to_last_runs(path=LOG_FILE_PATH, keep_runs=KEEP_LOG_RUNS):
 
 def _print_run_report(summary):
     rid = summary.get("run_id")
+    tz_name = summary.get("log_timezone", "UTC")
     print(f"[run:{rid}] ===== SEEKARR RUN START =====")
-    print(f"[run:{rid}] Started:  {summary.get('run_started_at')}")
-    print(f"[run:{rid}] Finished: {summary.get('run_finished_at')}")
+    print(f"[run:{rid}] Started ({tz_name}):  {summary.get('run_started_at_local')}")
+    print(f"[run:{rid}] Finished ({tz_name}): {summary.get('run_finished_at_local')}")
 
-    print(f"[run:{rid}] Commands planned -> Sonarr missing: {summary.get('sonarr_missing_commands_planned', 0)}, "
-          f"Sonarr upgrades: {summary.get('sonarr_upgrade_commands_planned', 0)}, "
-          f"Radarr missing: {summary.get('radarr_missing_commands_planned', 0)}, "
-          f"Radarr upgrades: {summary.get('radarr_upgrade_commands_planned', 0)}")
+    if summary.get("dry_run"):
+        sm = summary.get('sonarr_missing_commands_planned', 0)
+        su = summary.get('sonarr_upgrade_commands_planned', 0)
+        rm = summary.get('radarr_missing_commands_planned', 0)
+        ru = summary.get('radarr_upgrade_commands_planned', 0)
+        mode_label = "Command counts (dry-run/planned)"
+    else:
+        sm = summary.get('sonarr_missing_commands', 0)
+        su = summary.get('sonarr_upgrade_commands', 0)
+        rm = summary.get('radarr_missing_commands', 0)
+        ru = summary.get('radarr_upgrade_commands', 0)
+        mode_label = "Command counts (live/sent)"
 
-    print(f"[run:{rid}] Commands sent (live mode) -> Sonarr missing: {summary.get('sonarr_missing_commands', 0)}, "
-          f"Sonarr upgrades: {summary.get('sonarr_upgrade_commands', 0)}, "
-          f"Radarr missing: {summary.get('radarr_missing_commands', 0)}, "
-          f"Radarr upgrades: {summary.get('radarr_upgrade_commands', 0)}")
+    print(f"[run:{rid}] {mode_label} -> Sonarr missing: {sm}, "
+          f"Sonarr upgrades: {su}, "
+          f"Radarr missing: {rm}, "
+          f"Radarr upgrades: {ru}")
 
     def section(label, total, titles):
         print(f"[run:{rid}] {label}: total selected={total}, titles listed={len(titles)}")
@@ -312,6 +338,7 @@ def _print_run_report(summary):
 
 
 def run_once(cfg, dry_run=False):
+    log_tz_name, log_tz = _get_log_timezone(cfg)
     run_started = datetime.now(timezone.utc)
     run_id = uuid.uuid4().hex[:10]
 
@@ -438,8 +465,12 @@ def run_once(cfg, dry_run=False):
     run_finished = datetime.now(timezone.utc)
 
     summary["run_id"] = run_id
+    summary["dry_run"] = bool(dry_run)
+    summary["log_timezone"] = log_tz_name
     summary["run_started_at"] = _iso_utc(run_started)
     summary["run_finished_at"] = _iso_utc(run_finished)
+    summary["run_started_at_local"] = _fmt_iso_in_tz(summary["run_started_at"], log_tz)
+    summary["run_finished_at_local"] = _fmt_iso_in_tz(summary["run_finished_at"], log_tz)
 
     if cfg.get("sonarr", {}).get("enabled"):
         son_changes = recent_changes(cfg["sonarr"], "sonarr", run_started, run_finished)
