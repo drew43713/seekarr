@@ -40,14 +40,12 @@ This means repeated runs **cycle across the full eligible library over time** ra
 
 ## Docker Compose (recommended)
 
-Use this as a starting `docker-compose.yml`:
+Use this as a starting `docker-compose.yml` (published image):
 
 ```yaml
 services:
   seekarr:
-    build:
-      context: https://github.com/drew43713/seekarr.git#main
-      dockerfile: Dockerfile
+    image: adaughe2/seekarr:latest
     container_name: seekarr
     restart: unless-stopped
     volumes:
@@ -75,7 +73,7 @@ services:
 Run it:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 This reads local `config.json` (if mounted), applies env overrides, and writes logs to `./logs/seekarr.log`.

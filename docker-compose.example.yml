@@ -1,8 +1,6 @@
 services:
   seekarr:
-    build:
-      context: https://github.com/drew43713/seekarr.git#main
-      dockerfile: Dockerfile
+    image: adaughe2/seekarr:latest
     container_name: seekarr
     restart: unless-stopped
     volumes:
