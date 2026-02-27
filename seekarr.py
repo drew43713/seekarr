@@ -251,7 +251,12 @@ def _print_run_report(summary):
     print(f"[run:{rid}] Started:  {summary.get('run_started_at')}")
     print(f"[run:{rid}] Finished: {summary.get('run_finished_at')}")
 
-    print(f"[run:{rid}] Commands sent -> Sonarr missing: {summary.get('sonarr_missing_commands', 0)}, "
+    print(f"[run:{rid}] Commands planned -> Sonarr missing: {summary.get('sonarr_missing_commands_planned', 0)}, "
+          f"Sonarr upgrades: {summary.get('sonarr_upgrade_commands_planned', 0)}, "
+          f"Radarr missing: {summary.get('radarr_missing_commands_planned', 0)}, "
+          f"Radarr upgrades: {summary.get('radarr_upgrade_commands_planned', 0)}")
+
+    print(f"[run:{rid}] Commands sent (live mode) -> Sonarr missing: {summary.get('sonarr_missing_commands', 0)}, "
           f"Sonarr upgrades: {summary.get('sonarr_upgrade_commands', 0)}, "
           f"Radarr missing: {summary.get('radarr_missing_commands', 0)}, "
           f"Radarr upgrades: {summary.get('radarr_upgrade_commands', 0)}")
@@ -314,6 +319,7 @@ def run_once(cfg, dry_run=False):
             summary["sonarr_missing_offset_start"] = offset
             summary["sonarr_missing_offset_next"] = next_offset
             summary["sonarr_missing_selected_total"] = len(batch)
+            summary["sonarr_missing_commands_planned"] = len(batch)
             summary["sonarr_missing_titles"] = _limit_titles([sonarr_titles.get(sid, f"series:{sid}") for sid in batch])
             for sid in batch:
                 payload = {"name": "MissingEpisodeSearch", "seriesId": sid}
@@ -335,6 +341,7 @@ def run_once(cfg, dry_run=False):
             summary["sonarr_cutoff_offset_start"] = cutoff_offset
             summary["sonarr_cutoff_offset_next"] = next_cutoff_offset
             summary["sonarr_upgrade_selected_total"] = len(batch)
+            summary["sonarr_upgrade_commands_planned"] = 1 if batch else 0
             ep_to_series = {r.get("id"): r.get("seriesId") for r in recs if r.get("id") is not None}
             series_names = []
             seen_series = set()
@@ -371,6 +378,7 @@ def run_once(cfg, dry_run=False):
             summary["radarr_missing_offset_start"] = offset
             summary["radarr_missing_offset_next"] = next_offset
             summary["radarr_missing_selected_total"] = len(batch)
+            summary["radarr_missing_commands_planned"] = len(batch)
             summary["radarr_missing_titles"] = _limit_titles([radarr_titles.get(mid, f"movie:{mid}") for mid in batch])
             for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
@@ -392,6 +400,7 @@ def run_once(cfg, dry_run=False):
             summary["radarr_cutoff_offset_start"] = cutoff_offset
             summary["radarr_cutoff_offset_next"] = next_cutoff_offset
             summary["radarr_upgrade_selected_total"] = len(batch)
+            summary["radarr_upgrade_commands_planned"] = len(batch)
             summary["radarr_upgrade_titles"] = _limit_titles([radarr_titles.get(mid, f"movie:{mid}") for mid in batch])
             for mid in batch:
                 payload = {"name": "MoviesSearch", "movieIds": [mid]}
