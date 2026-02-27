@@ -125,3 +125,10 @@ Seekarr prints a startup banner and an explicit ready line:
 - `READY: cron scheduler active ...` in `docker logs`
 - same output is also written to `/logs/seekarr.log`
 - manual runs and cron runs both write to `/logs/seekarr.log`
+
+## License
+
+This project is licensed under the MIT License.
+
+- Full license text: [LICENSE](./LICENSE)
+- Copyright (c) 2026 Andrew Daugherty
