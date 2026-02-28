@@ -75,7 +75,14 @@ def wait_for_command_completion(app_cfg, command_ids, app_name, timeout_seconds=
 
     pending = set(ids)
     terminal = 0
-    deadline = time.time() + max(1, int(timeout_seconds))
+    timeout_seconds = max(1, int(timeout_seconds))
+    poll_seconds = max(1, int(poll_seconds))
+    deadline = time.time() + timeout_seconds
+
+    print(
+        f"[{app_name}] waiting for search commands to complete "
+        f"(submitted={len(ids)}, timeout={timeout_seconds}s, poll={poll_seconds}s)"
+    )
 
     while pending and time.time() < deadline:
         for cid in list(pending):
@@ -91,15 +98,23 @@ def wait_for_command_completion(app_cfg, command_ids, app_name, timeout_seconds=
                 terminal += 1
 
         if pending:
-            time.sleep(max(1, int(poll_seconds)))
+            print(f"[{app_name}] still waiting on {len(pending)} search command(s)...")
+            time.sleep(poll_seconds)
 
     timed_out = len(pending)
+    finished = len(ids) - timed_out
+
     if timed_out:
-        print(f"[{app_name}] warning: {timed_out} command(s) did not reach terminal state before timeout")
+        print(
+            f"[{app_name}] warning: waited for searches to complete, but {timed_out} "
+            f"command(s) did not reach terminal state before timeout"
+        )
+    else:
+        print(f"[{app_name}] all submitted search commands reached terminal state ({finished}/{len(ids)})")
 
     return {
         "submitted": len(ids),
-        "completed": len(ids) - timed_out,
+        "completed": finished,
         "terminal": terminal,
         "timed_out": timed_out,
     }
