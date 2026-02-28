@@ -426,7 +426,7 @@ def run_once(cfg, dry_run=False):
     radarr_titles = _movie_title_map(cfg["radarr"]) if cfg.get("radarr", {}).get("enabled") else {}
 
     runtime_cfg = cfg.get("runtime", {}) or {}
-    command_poll_timeout = int(runtime_cfg.get("command_poll_timeout_seconds", 180))
+    command_poll_timeout = int(runtime_cfg.get("command_poll_timeout_seconds", 900))
     command_poll_interval = int(runtime_cfg.get("command_poll_interval_seconds", 5))
     post_command_grace = int(runtime_cfg.get("post_command_grace_seconds", 120))
 
