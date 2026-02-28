@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -63,6 +64,43 @@ def api_post(base_url, api_key, path, payload):
 def get_queue_len(app_cfg):
     q = api_get(app_cfg["base_url"], app_cfg["api_key"], "/queue", {"page": 1, "pageSize": 1})
     return int(q.get("totalRecords", 0))
+
+
+def wait_for_command_completion(app_cfg, command_ids, app_name, timeout_seconds=180, poll_seconds=5):
+    ids = [cid for cid in command_ids if cid is not None]
+    if not ids:
+        return {"submitted": 0, "completed": 0, "terminal": 0, "timed_out": 0}
+
+    pending = set(ids)
+    terminal = 0
+    deadline = time.time() + max(1, int(timeout_seconds))
+
+    while pending and time.time() < deadline:
+        for cid in list(pending):
+            try:
+                info = api_get(app_cfg["base_url"], app_cfg["api_key"], f"/command/{cid}")
+            except Exception:
+                continue
+
+            status = str(info.get("status") or "").lower()
+            completed = bool(info.get("completed"))
+            if completed or status in {"completed", "failed", "aborted", "cancelled"}:
+                pending.remove(cid)
+                terminal += 1
+
+        if pending:
+            time.sleep(max(1, int(poll_seconds)))
+
+    timed_out = len(pending)
+    if timed_out:
+        print(f"[{app_name}] warning: {timed_out} command(s) did not reach terminal state before timeout")
+
+    return {
+        "submitted": len(ids),
+        "completed": len(ids) - timed_out,
+        "terminal": terminal,
+        "timed_out": timed_out,
+    }
 
 
 def sonarr_missing_ids(app_cfg):
@@ -356,6 +394,14 @@ def run_once(cfg, dry_run=False):
     sonarr_titles = _series_title_map(cfg["sonarr"]) if cfg.get("sonarr", {}).get("enabled") else {}
     radarr_titles = _movie_title_map(cfg["radarr"]) if cfg.get("radarr", {}).get("enabled") else {}
 
+    runtime_cfg = cfg.get("runtime", {}) or {}
+    command_poll_timeout = int(runtime_cfg.get("command_poll_timeout_seconds", 180))
+    command_poll_interval = int(runtime_cfg.get("command_poll_interval_seconds", 5))
+    post_command_grace = int(runtime_cfg.get("post_command_grace_seconds", 120))
+
+    sonarr_command_ids = []
+    radarr_command_ids = []
+
     # Sonarr missing
     if cfg.get("sonarr", {}).get("enabled"):
         s_cfg = cfg["sonarr"]
@@ -377,7 +423,8 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][sonarr] would POST /command {payload}")
                 else:
-                    api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
+                    resp = api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
+                    sonarr_command_ids.append(resp.get("id"))
                     summary["sonarr_missing_commands"] += 1
             state["sonarr_missing_offset"] = next_offset
         else:
@@ -411,7 +458,8 @@ def run_once(cfg, dry_run=False):
                         f"count={len(batch)} offset={cutoff_offset}->{next_cutoff_offset}"
                     )
                 else:
-                    api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
+                    resp = api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
+                    sonarr_command_ids.append(resp.get("id"))
                     summary["sonarr_upgrade_commands"] += 1
             state["sonarr_cutoff_offset"] = next_cutoff_offset
 
@@ -436,7 +484,8 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command {payload}")
                 else:
-                    api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
+                    resp = api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
+                    radarr_command_ids.append(resp.get("id"))
                     summary["radarr_missing_commands"] += 1
             state["radarr_missing_offset"] = next_offset
         else:
@@ -458,9 +507,38 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command upgrade {payload}")
                 else:
-                    api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
+                    resp = api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
+                    radarr_command_ids.append(resp.get("id"))
                     summary["radarr_upgrade_commands"] += 1
             state["radarr_cutoff_offset"] = next_cutoff_offset
+
+    if not dry_run and cfg.get("sonarr", {}).get("enabled") and sonarr_command_ids:
+        son_status = wait_for_command_completion(
+            cfg["sonarr"],
+            sonarr_command_ids,
+            "sonarr",
+            timeout_seconds=command_poll_timeout,
+            poll_seconds=command_poll_interval,
+        )
+        summary["sonarr_commands_submitted"] = son_status["submitted"]
+        summary["sonarr_commands_completed"] = son_status["completed"]
+        summary["sonarr_commands_timed_out"] = son_status["timed_out"]
+
+    if not dry_run and cfg.get("radarr", {}).get("enabled") and radarr_command_ids:
+        rad_status = wait_for_command_completion(
+            cfg["radarr"],
+            radarr_command_ids,
+            "radarr",
+            timeout_seconds=command_poll_timeout,
+            poll_seconds=command_poll_interval,
+        )
+        summary["radarr_commands_submitted"] = rad_status["submitted"]
+        summary["radarr_commands_completed"] = rad_status["completed"]
+        summary["radarr_commands_timed_out"] = rad_status["timed_out"]
+
+    if not dry_run and (sonarr_command_ids or radarr_command_ids) and post_command_grace > 0:
+        print(f"[run:{run_id}] waiting {post_command_grace}s grace for history events to settle")
+        time.sleep(post_command_grace)
 
     run_finished = datetime.now(timezone.utc)
 
