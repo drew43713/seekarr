@@ -91,8 +91,9 @@ def _check_api(base_url, api_key, label, retries=6, delay=5):
 
 
 def _boot_banner():
+    from seekarr import __version__
     print("[seekarr] ========================================")
-    print("[seekarr] Booting Seekarr...")
+    print(f"[seekarr] Booting Seekarr v{__version__}")
     print("[seekarr] Scanning for missing + cutoff candidates")
     print("[seekarr] ========================================")
 

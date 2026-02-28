@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+__version__ = "1.1.0"
+
 import argparse
 import json
 import os
@@ -103,16 +105,29 @@ def wait_for_command_completion(app_cfg, command_ids, app_name, timeout_seconds=
     }
 
 
+def _paginate_wanted(app_cfg, endpoint, page_size=1000):
+    """Fetch all records from a paginated wanted endpoint."""
+    all_recs = []
+    page = 1
+    while True:
+        data = api_get(app_cfg["base_url"], app_cfg["api_key"], endpoint, {"page": page, "pageSize": page_size})
+        recs = data.get("records", [])
+        all_recs.extend(recs)
+        total = int(data.get("totalRecords", 0))
+        if len(all_recs) >= total or not recs:
+            break
+        page += 1
+    return all_recs, total
+
+
 def sonarr_missing_ids(app_cfg):
-    missing = api_get(app_cfg["base_url"], app_cfg["api_key"], "/wanted/missing", {"page": 1, "pageSize": 1000})
-    recs = missing.get("records", [])
+    recs, total = _paginate_wanted(app_cfg, "/wanted/missing")
     series_ids = sorted({r.get("seriesId") for r in recs if r.get("seriesId") is not None})
     return recs, series_ids
 
 
 def radarr_missing_ids(app_cfg):
-    missing = api_get(app_cfg["base_url"], app_cfg["api_key"], "/wanted/missing", {"page": 1, "pageSize": 1000})
-    recs = missing.get("records", [])
+    recs, total = _paginate_wanted(app_cfg, "/wanted/missing")
     movie_ids = sorted(
         {
             r.get("movieId") if r.get("movieId") is not None else r.get("id")
@@ -124,15 +139,13 @@ def radarr_missing_ids(app_cfg):
 
 
 def sonarr_cutoff_episode_ids(app_cfg):
-    cutoff = api_get(app_cfg["base_url"], app_cfg["api_key"], "/wanted/cutoff", {"page": 1, "pageSize": 1000})
-    recs = cutoff.get("records", [])
+    recs, total = _paginate_wanted(app_cfg, "/wanted/cutoff")
     episode_ids = sorted({r.get("id") for r in recs if r.get("id") is not None})
     return recs, episode_ids
 
 
 def radarr_cutoff_movie_ids(app_cfg):
-    cutoff = api_get(app_cfg["base_url"], app_cfg["api_key"], "/wanted/cutoff", {"page": 1, "pageSize": 1000})
-    recs = cutoff.get("records", [])
+    recs, total = _paginate_wanted(app_cfg, "/wanted/cutoff")
     movie_ids = sorted({r.get("id") for r in recs if r.get("id") is not None})
     return recs, movie_ids
 
@@ -241,7 +254,7 @@ def _fmt_iso_in_tz(iso_utc, tzinfo):
     return dt.astimezone(tzinfo).isoformat()
 
 
-def recent_changes(app_cfg, media_type, started_at, finished_at):
+def recent_changes(app_cfg, media_type, started_at, finished_at, title_map=None):
     # media_type: "sonarr" or "radarr"
     try:
         hist = api_get(app_cfg["base_url"], app_cfg["api_key"], "/history", {"page": 1, "pageSize": 500})
@@ -250,12 +263,14 @@ def recent_changes(app_cfg, media_type, started_at, finished_at):
         return {"grabs": 0, "imports": 0, "titles": []}
 
     if media_type == "sonarr":
-        items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/series")
-        title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
+        if title_map is None:
+            items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/series")
+            title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
         id_key = "seriesId"
     else:
-        items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/movie")
-        title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
+        if title_map is None:
+            items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/movie")
+            title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
         id_key = "movieId"
 
     grabs = 0
@@ -391,6 +406,7 @@ def run_once(cfg, dry_run=False):
     summary = defaultdict(int)
     state_path, state = load_state(cfg)
 
+    # Cache title maps to avoid redundant full-library API calls
     sonarr_titles = _series_title_map(cfg["sonarr"]) if cfg.get("sonarr", {}).get("enabled") else {}
     radarr_titles = _movie_title_map(cfg["radarr"]) if cfg.get("radarr", {}).get("enabled") else {}
 
@@ -551,13 +567,13 @@ def run_once(cfg, dry_run=False):
     summary["run_finished_at_local"] = _fmt_iso_in_tz(summary["run_finished_at"], log_tz)
 
     if cfg.get("sonarr", {}).get("enabled"):
-        son_changes = recent_changes(cfg["sonarr"], "sonarr", run_started, run_finished)
+        son_changes = recent_changes(cfg["sonarr"], "sonarr", run_started, run_finished, title_map=sonarr_titles)
         summary["sonarr_grabs_in_run_window"] = son_changes["grabs"]
         summary["sonarr_imports_in_run_window"] = son_changes["imports"]
         summary["sonarr_import_titles_in_run_window"] = son_changes["titles"]
 
     if cfg.get("radarr", {}).get("enabled"):
-        rad_changes = recent_changes(cfg["radarr"], "radarr", run_started, run_finished)
+        rad_changes = recent_changes(cfg["radarr"], "radarr", run_started, run_finished, title_map=radarr_titles)
         summary["radarr_grabs_in_run_window"] = rad_changes["grabs"]
         summary["radarr_imports_in_run_window"] = rad_changes["imports"]
         summary["radarr_import_titles_in_run_window"] = rad_changes["titles"]

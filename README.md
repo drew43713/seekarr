@@ -100,6 +100,9 @@ Config precedence summary:
   - Example: `"timezone": "America/New_York"`
 - `runtime.dry_run`: if `true`, cron jobs run in dry-run mode
 - `state.path`: state file for rotation offsets (default `/config/seekarr_state.json`)
+- `runtime.command_poll_timeout_seconds`: max seconds to wait for Sonarr/Radarr commands to complete (default `180`)
+- `runtime.command_poll_interval_seconds`: seconds between polling command status (default `5`)
+- `runtime.post_command_grace_seconds`: seconds to wait after commands complete before checking history for grabs/imports (default `120`)
 
 Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`
@@ -108,6 +111,11 @@ Environment overrides for runtime:
 - `SEEKARR_TIMEZONE=UTC|America/New_York|...` (overrides `runtime.timezone`)
 - `SEEKARR_UPGRADES_ENABLED=true|false`
 - `SEEKARR_STARTUP_STRICT=true|false` (default `true`)
+- `SEEKARR_MAX_SERIES_SEARCHES=25`
+- `SEEKARR_MAX_MOVIE_SEARCHES=25`
+- `SEEKARR_MAX_UPGRADE_EPISODES=200`
+- `SEEKARR_MAX_UPGRADE_MOVIES=50`
+- `SEEKARR_SKIP_IF_QUEUE_OVER=200`
 
 ## Startup checks
 
