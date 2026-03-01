@@ -327,7 +327,6 @@ def run_once(cfg, dry_run=False):
     if cfg.get("sonarr", {}).get("enabled"):
         s_cfg = cfg["sonarr"]
         sq = get_queue_len(s_cfg)
-        print(f"[sonarr] queue={sq}")
         if sq <= queue_cap:
             recs, series_ids = sonarr_missing_ids(s_cfg)
             summary["sonarr_missing_episodes"] = len(recs)
@@ -386,7 +385,6 @@ def run_once(cfg, dry_run=False):
     if cfg.get("radarr", {}).get("enabled"):
         r_cfg = cfg["radarr"]
         rq = get_queue_len(r_cfg)
-        print(f"[radarr] queue={rq}")
         if rq <= queue_cap:
             recs, movie_ids = radarr_missing_ids(r_cfg)
             summary["radarr_missing_movies"] = len(recs)
