@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from collections import defaultdict
 from urllib import request, parse, error
 
-TITLE_LOG_LIMIT = 25
+TITLE_LOG_LIMIT = None
 KEEP_LOG_RUNS = 4
 LOG_FILE_PATH = "/logs/seekarr.log"
 
