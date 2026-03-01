@@ -100,9 +100,6 @@ Config precedence summary:
   - Example: `"timezone": "America/New_York"`
 - `runtime.dry_run`: if `true`, cron jobs run in dry-run mode
 - `state.path`: state file for rotation offsets (default `/config/seekarr_state.json`)
-- `runtime.command_poll_timeout_seconds`: max seconds to wait for Sonarr/Radarr commands to complete (default `900`)
-- `runtime.command_poll_interval_seconds`: seconds between polling command status (default `5`)
-- `runtime.post_command_grace_seconds`: seconds to wait after commands complete before checking history for grabs/imports (default `120`)
 
 Environment overrides for runtime:
 - `SEEKARR_RUN_AS_CRON=true|false`

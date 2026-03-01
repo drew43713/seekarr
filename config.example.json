@@ -30,9 +30,6 @@
     "run_as_cron": true,
     "cron_schedule": "0 */12 * * *",
     "timezone": "UTC",
-    "dry_run": false,
-    "command_poll_timeout_seconds": 900,
-    "command_poll_interval_seconds": 5,
-    "post_command_grace_seconds": 120
+    "dry_run": false
   }
 }

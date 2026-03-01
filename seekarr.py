@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 import sys
-import time
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -68,56 +67,7 @@ def get_queue_len(app_cfg):
     return int(q.get("totalRecords", 0))
 
 
-def wait_for_command_completion(app_cfg, command_ids, app_name, timeout_seconds=180, poll_seconds=5):
-    ids = [cid for cid in command_ids if cid is not None]
-    if not ids:
-        return {"submitted": 0, "completed": 0, "terminal": 0, "timed_out": 0}
-
-    pending = set(ids)
-    terminal = 0
-    timeout_seconds = max(1, int(timeout_seconds))
-    poll_seconds = max(1, int(poll_seconds))
-    deadline = time.time() + timeout_seconds
-
-    print(
-        f"[{app_name}] waiting for search commands to complete "
-        f"(submitted={len(ids)}, timeout={timeout_seconds}s, poll={poll_seconds}s)"
-    )
-
-    while pending and time.time() < deadline:
-        for cid in list(pending):
-            try:
-                info = api_get(app_cfg["base_url"], app_cfg["api_key"], f"/command/{cid}")
-            except Exception:
-                continue
-
-            status = str(info.get("status") or "").lower()
-            completed = bool(info.get("completed"))
-            if completed or status in {"completed", "failed", "aborted", "cancelled"}:
-                pending.remove(cid)
-                terminal += 1
-
-        if pending:
-            print(f"[{app_name}] still waiting on {len(pending)} search command(s)...")
-            time.sleep(poll_seconds)
-
-    timed_out = len(pending)
-    finished = len(ids) - timed_out
-
-    if timed_out:
-        print(
-            f"[{app_name}] warning: waited for searches to complete, but {timed_out} "
-            f"command(s) did not reach terminal state before timeout"
-        )
-    else:
-        print(f"[{app_name}] all submitted search commands reached terminal state ({finished}/{len(ids)})")
-
-    return {
-        "submitted": len(ids),
-        "completed": finished,
-        "terminal": terminal,
-        "timed_out": timed_out,
-    }
+# Command completion waiting intentionally removed to keep runs fast and logs concise.
 
 
 def _paginate_wanted(app_cfg, endpoint, page_size=1000):
@@ -269,47 +219,6 @@ def _fmt_iso_in_tz(iso_utc, tzinfo):
     return dt.astimezone(tzinfo).isoformat()
 
 
-def recent_changes(app_cfg, media_type, started_at, finished_at, title_map=None):
-    # media_type: "sonarr" or "radarr"
-    try:
-        hist = api_get(app_cfg["base_url"], app_cfg["api_key"], "/history", {"page": 1, "pageSize": 500})
-        recs = hist.get("records", [])
-    except Exception:
-        return {"grabs": 0, "imports": 0, "titles": []}
-
-    if media_type == "sonarr":
-        if title_map is None:
-            items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/series")
-            title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
-        id_key = "seriesId"
-    else:
-        if title_map is None:
-            items = api_get(app_cfg["base_url"], app_cfg["api_key"], "/movie")
-            title_map = {x.get("id"): x.get("title") for x in items if x.get("id") is not None}
-        id_key = "movieId"
-
-    grabs = 0
-    imports = 0
-    titles = []
-    seen = set()
-    for r in recs:
-        dt = _parse_iso_utc(r.get("date"))
-        if not dt or dt < started_at or dt > finished_at:
-            continue
-        ev = r.get("eventType")
-        if ev == "grabbed":
-            grabs += 1
-        elif ev == "downloadFolderImported":
-            imports += 1
-            mid = r.get(id_key)
-            t = title_map.get(mid) or r.get("sourceTitle")
-            if t and t not in seen:
-                seen.add(t)
-                titles.append(t)
-
-    return {"grabs": grabs, "imports": imports, "titles": titles[:20]}
-
-
 def _limit_titles(items, limit=TITLE_LOG_LIMIT):
     return items[:limit]
 
@@ -389,19 +298,6 @@ def _print_run_report(summary):
     section("Radarr missing movies", summary.get("radarr_missing_selected_total", 0), summary.get("radarr_missing_titles", []))
     section("Radarr upgrade movies", summary.get("radarr_upgrade_selected_total", 0), summary.get("radarr_upgrade_titles", []))
 
-    print(f"[run:{rid}] In-run results -> Sonarr grabs/imports: {summary.get('sonarr_grabs_in_run_window', 0)}/{summary.get('sonarr_imports_in_run_window', 0)}; "
-          f"Radarr grabs/imports: {summary.get('radarr_grabs_in_run_window', 0)}/{summary.get('radarr_imports_in_run_window', 0)}")
-
-    if summary.get("sonarr_import_titles_in_run_window"):
-        print(f"[run:{rid}] Sonarr imported titles in run window:")
-        for t in summary.get("sonarr_import_titles_in_run_window", []):
-            print(f"[run:{rid}]   - {t}")
-
-    if summary.get("radarr_import_titles_in_run_window"):
-        print(f"[run:{rid}] Radarr imported titles in run window:")
-        for t in summary.get("radarr_import_titles_in_run_window", []):
-            print(f"[run:{rid}]   - {t}")
-
     print(f"[run:{rid}] ===== SEEKARR RUN END =====")
 
 
@@ -425,13 +321,7 @@ def run_once(cfg, dry_run=False):
     sonarr_titles = _series_title_map(cfg["sonarr"]) if cfg.get("sonarr", {}).get("enabled") else {}
     radarr_titles = _movie_title_map(cfg["radarr"]) if cfg.get("radarr", {}).get("enabled") else {}
 
-    runtime_cfg = cfg.get("runtime", {}) or {}
-    command_poll_timeout = int(runtime_cfg.get("command_poll_timeout_seconds", 900))
-    command_poll_interval = int(runtime_cfg.get("command_poll_interval_seconds", 5))
-    post_command_grace = int(runtime_cfg.get("post_command_grace_seconds", 120))
-
-    sonarr_command_ids = []
-    radarr_command_ids = []
+    # We report what was submitted this run; no completion wait loop.
 
     # Sonarr missing
     if cfg.get("sonarr", {}).get("enabled"):
@@ -454,8 +344,7 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][sonarr] would POST /command {payload}")
                 else:
-                    resp = api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
-                    sonarr_command_ids.append(resp.get("id"))
+                    api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
                     summary["sonarr_missing_commands"] += 1
             state["sonarr_missing_offset"] = next_offset
         else:
@@ -489,8 +378,7 @@ def run_once(cfg, dry_run=False):
                         f"count={len(batch)} offset={cutoff_offset}->{next_cutoff_offset}"
                     )
                 else:
-                    resp = api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
-                    sonarr_command_ids.append(resp.get("id"))
+                    api_post(s_cfg["base_url"], s_cfg["api_key"], "/command", payload)
                     summary["sonarr_upgrade_commands"] += 1
             state["sonarr_cutoff_offset"] = next_cutoff_offset
 
@@ -515,8 +403,7 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command {payload}")
                 else:
-                    resp = api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
-                    radarr_command_ids.append(resp.get("id"))
+                    api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_missing_commands"] += 1
             state["radarr_missing_offset"] = next_offset
         else:
@@ -538,38 +425,9 @@ def run_once(cfg, dry_run=False):
                 if dry_run:
                     print(f"[dry-run][radarr] would POST /command upgrade {payload}")
                 else:
-                    resp = api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
-                    radarr_command_ids.append(resp.get("id"))
+                    api_post(r_cfg["base_url"], r_cfg["api_key"], "/command", payload)
                     summary["radarr_upgrade_commands"] += 1
             state["radarr_cutoff_offset"] = next_cutoff_offset
-
-    if not dry_run and cfg.get("sonarr", {}).get("enabled") and sonarr_command_ids:
-        son_status = wait_for_command_completion(
-            cfg["sonarr"],
-            sonarr_command_ids,
-            "sonarr",
-            timeout_seconds=command_poll_timeout,
-            poll_seconds=command_poll_interval,
-        )
-        summary["sonarr_commands_submitted"] = son_status["submitted"]
-        summary["sonarr_commands_completed"] = son_status["completed"]
-        summary["sonarr_commands_timed_out"] = son_status["timed_out"]
-
-    if not dry_run and cfg.get("radarr", {}).get("enabled") and radarr_command_ids:
-        rad_status = wait_for_command_completion(
-            cfg["radarr"],
-            radarr_command_ids,
-            "radarr",
-            timeout_seconds=command_poll_timeout,
-            poll_seconds=command_poll_interval,
-        )
-        summary["radarr_commands_submitted"] = rad_status["submitted"]
-        summary["radarr_commands_completed"] = rad_status["completed"]
-        summary["radarr_commands_timed_out"] = rad_status["timed_out"]
-
-    if not dry_run and (sonarr_command_ids or radarr_command_ids) and post_command_grace > 0:
-        print(f"[run:{run_id}] waiting {post_command_grace}s grace for history events to settle")
-        time.sleep(post_command_grace)
 
     run_finished = datetime.now(timezone.utc)
 
@@ -580,18 +438,6 @@ def run_once(cfg, dry_run=False):
     summary["run_finished_at"] = _iso_utc(run_finished)
     summary["run_started_at_local"] = _fmt_iso_in_tz(summary["run_started_at"], log_tz)
     summary["run_finished_at_local"] = _fmt_iso_in_tz(summary["run_finished_at"], log_tz)
-
-    if cfg.get("sonarr", {}).get("enabled"):
-        son_changes = recent_changes(cfg["sonarr"], "sonarr", run_started, run_finished, title_map=sonarr_titles)
-        summary["sonarr_grabs_in_run_window"] = son_changes["grabs"]
-        summary["sonarr_imports_in_run_window"] = son_changes["imports"]
-        summary["sonarr_import_titles_in_run_window"] = son_changes["titles"]
-
-    if cfg.get("radarr", {}).get("enabled"):
-        rad_changes = recent_changes(cfg["radarr"], "radarr", run_started, run_finished, title_map=radarr_titles)
-        summary["radarr_grabs_in_run_window"] = rad_changes["grabs"]
-        summary["radarr_imports_in_run_window"] = rad_changes["imports"]
-        summary["radarr_import_titles_in_run_window"] = rad_changes["titles"]
 
     save_state(state_path, state)
     summary_dict = dict(summary)
